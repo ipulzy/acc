@@ -1,173 +1,93 @@
 import requests
-import json
-import random
-import time
+from bs4 import BeautifulSoup
 
-# --- KONFIGURASI ---
-# Cookie (dapat diubah jika kedaluwarsa)
-# PASTIKAN COOKIE ANDA YANG TERBARU DAN VALID
-VNSHARE_COOKIE = 'cf_clearance=99PwEcEEF2eiC7lQJRgNvO85I0uS7oPda5YWzSxiny4-1751052813-1.2.1.1-bdEzbiHz6YXxHV0uCzVhJ2InE6LclVnOJGm6ByKEUO9Mz2wyFPP1U77KGkfEVQD5aNZTJazjhwTtkw0JopRddfN6VDxkr8yJes2na9BSfNbH1zA3JqzkDxP8dRlKbnx20unAMTiAHvL1qRB2.1UlWg09fKoSbdlIeETh4UN.JvR.3qSGpWE.2kDh_XMlVqTsTVZMNnvYDoqJxYTrEOxGmNur2VstBHk_3X.sxg_xZy7uRE04CQ7F5G_xoczVfkEcWU0wAIif4I.J6Er97PJoLcgLVfGDz1OoGghhMdMOnTyrqoZVOJ9y.05dfrVuEKbQLxE35pxwl3gmHpSBr9USgjeuOuM79X4Fb1wYMj8HPMPnsHvJU0iL5sZkV61lgIRM'
+# --- Konfigurasi ---
+# Ganti dengan username dan password Anda jika diperlukan
+USERNAME = "ipulsnutz"
+PASSWORD = "bangsat31"
 
-# Konfigurasi Notifikasi Telegram
-TELEGRAM_BOT_TOKEN = "8108942782:AAG_Bm3Olvx3VrvPVsPjtpPIFpBLTdfWlhw"
-TELEGRAM_CHAT_ID = "932518771"
+# URL target
+LOGIN_URL = "http://tmtunnels.id/login.php"
+DASHBOARD_URL = "http://tmtunnels.id/dashboard?success"
 
-# Jeda waktu (dalam detik) antara setiap pembuatan akun
-DELAY_SECONDS = 60
-# --------------------
+# --- Headers untuk Request ---
+# Header ini meniru browser Firefox di Windows
+LOGIN_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
+    "Accept": "*/*",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "X-Requested-With": "XMLHttpRequest",
+    "Referer": "http://tmtunnels.id/",
+}
 
-def generate_username():
-    """Menghasilkan username dengan format 'ipul' diikuti angka random 5 digit."""
-    return f"ipul{random.randint(10000, 99999)}"
+DASHBOARD_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Referer": "http://tmtunnels.id/",
+    "Upgrade-Insecure-Requests": "1",
+}
 
-def get_auth_token():
-    """Mendapatkan token otentikasi dari ilovepariz.net."""
-    url = 'https://ilovepariz.net/api/login'
-    headers = {'authority': 'ilovepariz.net', 'accept': '*/*', 'content-type': 'application/json', 'origin': 'https://ilovepariz.net', 'referer': 'https://ilovepariz.net/', 'user-agent': 'Mozilla/5.0 (Linux; Android 8.1.0; Pixel C) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.116 Safari/537.36 EdgA/45.03.4.4955'}
-    print("1. Meminta token otentikasi...")
-    try:
-        response = requests.post(url, headers=headers, json={}, timeout=10)
-        response.raise_for_status()
-        token = response.json().get('token')
-        print("   -> Token berhasil didapatkan.")
-        return token
-    except requests.exceptions.RequestException as e:
-        print(f"   -> GAGAL: {e}")
-        return None
+# --- Payload untuk Login ---
+login_payload = {
+    "username": USERNAME,
+    "password": PASSWORD
+}
 
-def get_activation_code(token):
-    """Mendapatkan kode aktivasi menggunakan token otentikasi."""
-    if not token: return None
-    url = 'https://ilovepariz.net/api/code'
-    headers = {'authority': 'ilovepariz.net', 'accept': '*/*', 'authorization': f'Bearer {token}', 'referer': 'https://ilovepariz.net/', 'user-agent': 'Mozilla/5.0 (Linux; Android 8.1.0; Pixel C) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.116 Safari/537.36 EdgA/45.03.4.4955'}
-    print("2. Meminta kode aktivasi...")
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        code = response.json().get('code')
-        print(f"   -> Kode aktivasi berhasil didapatkan: {code}")
-        return code
-    except requests.exceptions.RequestException as e:
-        print(f"   -> GAGAL: {e}")
-        return None
+# 1. Membuat Session
+# Session object akan menyimpan cookies secara otomatis setelah login,
+# sehingga kita tetap "ter-autentikasi" untuk request selanjutnya.
+session = requests.Session()
 
-def create_account(code):
-    """Membuat akun di vnshare.top menggunakan kode aktivasi."""
-    if not code: return None
-    url = 'https://vnshare.top/getOffice'
-    headers = {'authority': 'vnshare.top', 'accept': '*/*', 'content-type': 'text/plain;charset=UTF-8', 'cookie': VNSHARE_COOKIE, 'origin': 'https://vnshare.top', 'referer': 'https://vnshare.top/', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'}
-    username = generate_username()
-    payload = {"subscription": "314c4481-f395-4525-be8b-2ec4bb1e9d91", "email": {"username": username, "domain": "mail.dangminhhoa.edu.vn"}, "code": code}
-    print(f"3. Mencoba membuat akun dengan username '{username}'...")
-    try:
-        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=15)
-        response.raise_for_status()
-        result = response.json()
-        if result.get('success'):
-            print("   -> SUKSES: Akun berhasil dibuat!")
-            return result.get('account')
-        else:
-            print(f"   -> GAGAL: {result.get('msg', 'Tidak ada pesan error dari server')}")
-            return None
-    except requests.exceptions.RequestException as e:
-        print(f"   -> GAGAL: {e}")
-        return None
+try:
+    # 2. Melakukan POST Request untuk Login
+    print(f"🚀 Mencoba login sebagai '{USERNAME}'...")
+    response_login = session.post(LOGIN_URL, headers=LOGIN_HEADERS, data=login_payload)
+    response_login.raise_for_status() # Cek jika ada error HTTP (spt 404, 500)
 
-# --- FUNGSI YANG DIMODIFIKASI ---
-def send_to_telegram(message):
-    """Mengirim pesan notifikasi ke Telegram dengan mekanisme coba lagi (retry)."""
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("   -> Variabel Telegram tidak diatur. Melewatkan notifikasi.")
-        return
+    # 3. Memeriksa Hasil Login
+    if "Login Success" in response_login.text:
+        print("✅ Login Berhasil!")
 
-    api_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    params = {'chat_id': TELEGRAM_CHAT_ID, 'text': message, 'parse_mode': 'HTML'}
-    
-    max_retries = 3
-    retry_delay = 5  # detik
+        # 4. Mengakses Halaman Dashboard
+        print("\n🔄 Mengakses halaman dashboard...")
+        response_dashboard = session.get(DASHBOARD_URL, headers=DASHBOARD_HEADERS)
+        response_dashboard.raise_for_status()
 
-    print("4. Mengirim notifikasi ke Telegram...")
-    for attempt in range(max_retries):
-        try:
-            response = requests.get(api_url, params=params, timeout=10)
-            response.raise_for_status()
-            if response.json().get('ok'):
-                print("   -> Notifikasi berhasil dikirim.")
-                return  # Keluar dari fungsi jika berhasil
-            else:
-                print(f"   -> Gagal mengirim notifikasi (Percobaan {attempt + 1}/{max_retries}): {response.text}")
-        except requests.exceptions.RequestException as e:
-            print(f"   -> Gagal (Percobaan {attempt + 1}/{max_retries}): {e}")
-
-        if attempt < max_retries - 1:
-            print(f"   -> Mencoba lagi dalam {retry_delay} detik...")
-            time.sleep(retry_delay)
-
-    print("   -> GAGAL TOTAL: Notifikasi tidak dapat dikirim setelah beberapa kali percobaan.")
-# -----------------------------
-
-if __name__ == '__main__':
-    print("========================================")
-    print("     Account Creator Snutzzzze      ")
-    print("========================================")
-    try:
-        jumlah_akun = int(input("Masukkan jumlah akun yang ingin dibuat: "))
-        if jumlah_akun <= 0:
-            print("Jumlah harus lebih dari nol."); exit()
-    except ValueError:
-        print("Input tidak valid. Harap masukkan angka."); exit()
-
-    print(f"\nMemulai proses pembuatan {jumlah_akun} akun...\n")
-    sukses_count = 0
-    saved_activation_code = None  # Variabel untuk menyimpan kode jika pembuatan akun gagal
-
-    for i in range(jumlah_akun):
-        print(f"========================================")
-        print(f"      PERCOBAAN AKUN #{i + 1} dari {jumlah_akun}      ")
-        print(f"========================================\n")
-
-        activation_code = None
-
-        if saved_activation_code:
-            print(f"[*] Menggunakan kode yang tersimpan dari percobaan sebelumnya: {saved_activation_code}")
-            activation_code = saved_activation_code
-            saved_activation_code = None # Hapus setelah digunakan lagi
-        else:
-            auth_token = get_auth_token()
-            if auth_token:
-                activation_code = get_activation_code(auth_token)
-
-        if not activation_code:
-            print("--> Gagal mendapatkan kode aktivasi. Lanjut ke percobaan berikutnya.\n")
-            if i < jumlah_akun - 1:
-                print(f"\nJeda {DELAY_SECONDS} detik sebelum lanjut...")
-                time.sleep(DELAY_SECONDS)
-                print("\n")
-            continue
+        # 5. Memverifikasi dan Menampilkan Konten Dashboard
+        # Menggunakan BeautifulSoup untuk parsing HTML
+        soup = BeautifulSoup(response_dashboard.text, 'html.parser')
         
-        new_account = create_account(activation_code)
+        # Cari elemen yang menandakan kita berada di dashboard
+        dashboard_heading = soup.find('h1', class_='h6', text='Dashboard')
+        username_display = soup.find('medium', text='username login')
 
-        if new_account:
-            sukses_count += 1
-            telegram_message = (
-                "<b>✅ Akun Baru Berhasil Dibuat</b>\n\n"
-                f"<b>#️⃣ Urutan:</b> {sukses_count}/{jumlah_akun}\n\n"
-                f"📧 <b>Email:</b> <code>{new_account.get('email')}</code>\n"
-                f"🔑 <b>Password:</b> <code>{new_account.get('password')}</code>\n\n"
-                "<i>Script by ipulSnutz</i>"
-            )
-            send_to_telegram(telegram_message)
+        if dashboard_heading and username_display:
+            print("✅ Berhasil masuk ke Dashboard.")
+            print("\n--- Konten Dashboard ---")
+            # Menampilkan div yang berisi info dashboard untuk verifikasi
+            dashboard_content = soup.find('div', class_='lh-1')
+            if dashboard_content:
+                print(dashboard_content.get_text(strip=True, separator='\n'))
+            else:
+                print("Tidak dapat menemukan konten spesifik dashboard.")
+            print("------------------------")
         else:
-            print(f"--> GAGAL membuat akun. Menyimpan kode '{activation_code}' untuk percobaan selanjutnya.")
-            saved_activation_code = activation_code  # Simpan kode untuk iterasi berikutnya
+            print("❌ Gagal memverifikasi halaman dashboard. Mungkin dialihkan kembali ke halaman login.")
+            print("Response Dashboard:\n", response_dashboard.text)
 
-        if i < jumlah_akun - 1:
-            print(f"\nJeda {DELAY_SECONDS} detik sebelum lanjut...")
-            time.sleep(DELAY_SECONDS)
-            print("\n")
+    elif "Login Failed" in response_login.text:
+        print("❌ Login Gagal! Periksa kembali username dan password Anda.")
+        # Menampilkan pesan error dari server
+        soup = BeautifulSoup(response_login.text, 'html.parser')
+        error_div = soup.find('div', class_='alert-danger')
+        if error_div:
+            print(f"Pesan Server: {error_div.get_text(strip=True)}")
 
-    print(f"\n========================================")
-    print(f"              PROSES SELESAI              ")
-    print(f"   Berhasil dibuat: {sukses_count} dari {jumlah_akun} percobaan   ")
-    print(f"         Script by Saipul Bahri         ")
-    print(f"========================================")
+    else:
+        print("❓ Respons login tidak dikenali.")
+        print("Response Login:\n", response_login.text)
+
+except requests.exceptions.RequestException as e:
+    print(f"Terjadi error saat melakukan request: {e}")
